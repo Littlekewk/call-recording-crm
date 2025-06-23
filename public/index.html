@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Recording CRM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 120px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-input {
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 184, 148, 0.3);
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+        
+        th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 18px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        
+        tr:hover {
+            background-color: #f8f9fa;
+            transition: all 0.2s ease;
+        }
+        
+        .phone-number {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        
+        .call-date {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .file-name {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #f1f3f4;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .listen-btn {
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .listen-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 184, 148, 0.3);
+        }
+        
+        .notes-input, .prospect-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 40px;
+        }
+        
+        .prospect-input {
+            min-height: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+        
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2e7d32;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .stats {
+                flex-wrap: wrap;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .filter-input {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📞 Call Recording CRM</h1>
+            <div class="stats">
+                <div class="stat-card">
+                    <span class="stat-number" id="totalCalls">-</span>
+                    <span class="stat-label">Total Calls</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="weekCalls">-</span>
+                    <span class="stat-label">This Week</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="todayCalls">-</span>
+                    <span class="stat-label">Today</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <input type="text" class="filter-input" placeholder="🔍 Search by phone number..." id="phoneFilter">
+            <input type="text" class="filter-input" placeholder="🔍 Search by prospect name..." id="nameFilter">
+            <input type="date" class="filter-input" id="dateFilter">
+            <button class="refresh-btn" onclick="loadCalls()">🔄 Refresh</button>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div class="table-container">
+            <div id="loadingIndicator" class="loading">
+                📡 Loading your call data...
+            </div>
+            
+            <table id="callsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Phone Number</th>
+                        <th>Prospect Name</th>
+                        <th>Call Date</th>
+                        <th>File Name</th>
+                        <th>Recording</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="callsTableBody">
+                </tbody>
+            </table>
+            
+            <div id="noData" class="no-data" style="display: none;">
+                📭 No call records found. Upload some MP3 files to your Google Drive to see them here!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCalls = [];
+        
+        // Load calls when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCalls();
+            loadStats();
+            
+            // Set up event listeners
+            document.getElementById('phoneFilter').addEventListener('input', filterCalls);
+            document.getElementById('nameFilter').addEventListener('input', filterCalls);
+            document.getElementById('dateFilter').addEventListener('change', filterCalls);
+        });
+        
+        async function loadCalls() {
+            try {
+                document.getElementById('loadingIndicator').style.display = 'block';
+                document.getElementById('callsTable').style.display = 'none';
+                document.getElementById('noData').style.display = 'none';
+                
+                const response = await fetch('/api/calls');
+                if (!response.ok) throw new Error('Failed to fetch calls');
+                
+                allCalls = await response.json();
+                displayCalls(allCalls);
+                
+                document.getElementById('loadingIndicator').style.display = 'none';
+                
+                if (allCalls.length === 0) {
+                    document.getElementById('noData').style.display = 'block';
+                } else {
+                    document.getElementById('callsTable').style.display = 'table';
+                }
+                
+            } catch (error) {
+                console.error('Error loading calls:', error);
+                showMessage('❌ Error loading calls: ' + error.message, 'error');
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                
+                const stats = await response.json();
+                document.getElementById('totalCalls').textContent = stats.total;
+                document.getElementById('weekCalls').textContent = stats.week;
+                document.getElementById('todayCalls').textContent = stats.today;
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        function displayCalls(calls) {
+            const tbody = document.getElementById('callsTableBody');
+            tbody.innerHTML = '';
+            
+            calls.forEach(call => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="phone-number">${call.phone_number || 'N/A'}</td>
+                    <td>
+                        <input type="text" 
+                               class="prospect-input" 
+                               placeholder="Enter prospect name..." 
+                               value="${call.prospect_name || ''}"
+                               onblur="updateProspect(${call.call_id}, this.value)">
+                    </td>
+                    <td class="call-date">${formatDate(call.call_date)}</td>
+                    <td><span class="file-name">${call.file_name || 'N/A'}</span></td>
+                    <td>
+                        ${call.recording_url ? 
+                            `<a href="${call.recording_url}" target="_blank" class="listen-btn">🎵 Listen</a>` : 
+                            '<span style="color: #999;">No recording</span>'
+                        }
+                    </td>
+                    <td>
+                        <textarea class="notes-input" 
+                                  placeholder="Add notes about this call..."
+                                  onblur="updateNotes(${call.call_id}, this.value)">${call.notes || ''}</textarea>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        function filterCalls() {
+            const phoneFilter = document.getElementById('phoneFilter').value.toLowerCase();
+            const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+            const dateFilter = document.getElementById('dateFilter').value;
+            
+            const filteredCalls = allCalls.filter(call => {
+                const phoneMatch = !phoneFilter || (call.phone_number && call.phone_number.toLowerCase().includes(phoneFilter));
+                const nameMatch = !nameFilter || (call.prospect_name && call.prospect_name.toLowerCase().includes(nameFilter));
+                const dateMatch = !dateFilter || (call.call_date && call.call_date.includes(dateFilter));
+                
+                return phoneMatch && nameMatch && dateMatch;
+            });
+            
+            displayCalls(filteredCalls);
+        }
+        
+        async function updateProspect(callId, prospectName) {
+            try {
+                const response = await fetch(`/api/calls/${callId}/prospect`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ prospect_name: prospectName }),
+                });
+                
+                if (!response.ok) throw new Error('Failed to update prospect name');
+                
+                // Update local data
+                const call = allCalls.find(c => c.call_id === callId);
+                if (call) call.prospect_name = prospectName;
+                
+                showMessage('✅ Prospect name updated successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error updating prospect:', error);
+                showMessage('❌ Error updating prospect name: ' + error.message, 'error');
+            }
+        }
+        
+        async function updateNotes(callId, notes) {
+            try {
+                const response = await fetch(`/api/calls/${callId}/notes`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ notes: notes }),
+                });
+                
+                if (!response.ok) throw new Error('Failed to update notes');
+                
+                // Update local data
+                const call = allCalls.find(c => c.call_id === callId);
+                if (call) call.notes = notes;
+                
+                showMessage('✅ Notes updated successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error updating notes:', error);
+                showMessage('❌ Error updating notes: ' + error.message, 'error');
+            }
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            
+            messageArea.innerHTML = '';
+            messageArea.appendChild(messageDiv);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
