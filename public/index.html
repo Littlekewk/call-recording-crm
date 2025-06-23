@@ -357,42 +357,6 @@
         
         // Load calls when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing CRM...');
-            
-            // Add a debug button
-            const debugBtn = document.createElement('button');
-            debugBtn.textContent = '🔍 Debug';
-            debugBtn.className = 'refresh-btn';
-            debugBtn.style.marginLeft = '10px';
-            debugBtn.style.background = 'linear-gradient(45deg, #6c5ce7, #a29bfe)';
-            debugBtn.onclick = async function() {
-                try {
-                    showMessage('Running diagnostics...', 'info');
-                    const response = await fetch('/api/debug');
-                    const debug = await response.json();
-                    console.log('Debug info:', debug);
-                    let debugMsg = `Server time: ${new Date(debug.serverTime).toLocaleString()}\n`;
-                    debugMsg += `Data file exists: ${debug.dataFileExists}\n`;
-                    debugMsg += `Data file path: ${debug.dataFilePath}\n`;
-                    debugMsg += `Data file size: ${debug.dataFileSize} bytes\n`;
-                    debugMsg += `Calls count: ${debug.callsCount}\n`;
-                    debugMsg += `Environment: ${debug.environment}`;
-                    
-                    alert(debugMsg);
-                    
-                    if (debug.callsCount > 0 && allCalls.length === 0) {
-                        showMessage('Data exists on server but not loaded. Refreshing...', 'info');
-                        loadCalls();
-                    }
-                } catch (e) {
-                    console.error('Debug failed:', e);
-                    showMessage('Debug failed: ' + e.message, 'error');
-                }
-            };
-            
-            // Add debug button to the filters div
-            document.querySelector('.filters').appendChild(debugBtn);
-            
             loadCalls();
             loadStats();
             
@@ -420,47 +384,24 @@
                 document.getElementById('callsTable').style.display = 'none';
                 document.getElementById('noData').style.display = 'none';
                 
-                console.log('Fetching calls from server...');
-                showMessage('Loading calls...', 'info');
-                
                 const response = await fetch('/api/calls');
-                console.log('Server response status:', response.status);
+                if (!response.ok) throw new Error('Failed to fetch calls');
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Server response not OK:', response.status, errorText);
-                    throw new Error(`Failed to fetch calls: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log(`Received ${data.length} calls from server:`, data);
-                allCalls = data;
-                
+                allCalls = await response.json();
                 displayCalls(allCalls);
                 
                 document.getElementById('loadingIndicator').style.display = 'none';
                 
                 if (allCalls.length === 0) {
-                    console.log('No calls found, showing empty state');
                     document.getElementById('noData').style.display = 'block';
-                    showMessage('No call records found. Check server logs.', 'info');
                 } else {
-                    console.log('Displaying calls table');
                     document.getElementById('callsTable').style.display = 'table';
-                    showMessage(`Loaded ${allCalls.length} call records`, 'success');
                 }
                 
             } catch (error) {
                 console.error('Error loading calls:', error);
                 showMessage('❌ Error loading calls: ' + error.message, 'error');
                 document.getElementById('loadingIndicator').style.display = 'none';
-                // Try to get debug info
-                fetch('/api/debug').then(r => r.json()).then(debug => {
-                    console.log('Debug info:', debug);
-                    if (debug.callsCount === 0) {
-                        showMessage('No calls found in database. Try restarting the server.', 'error');
-                    }
-                }).catch(e => console.error('Debug failed:', e));
             }
         }
         
@@ -670,10 +611,45 @@
         function formatDate(dateString) {
             if (!dateString) return 'N/A';
             
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+            // Special case for n8n date format
+            if (dateString.includes('Copy of')) {
+                return dateString;
+            }
+            
+            try {
+                const date = new Date(dateString);
+                
+                // Check if date is valid
+                if (isNaN(date.getTime())) {
+                    return dateString;
+                }
+                
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                return dateString;
+            }
+        }
+        
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            
+            messageArea.innerHTML = '';
+            messageArea.appendChild(messageDiv);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
