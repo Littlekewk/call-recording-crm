@@ -145,6 +145,62 @@ app.put('/api/calls/:id/notes', (req, res) => {
   }
 });
 
+// Delete a single call
+app.delete('/api/calls/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    let calls = readCalls();
+    
+    const initialLength = calls.length;
+    calls = calls.filter(call => call.call_id !== id);
+    
+    if (calls.length === initialLength) {
+      return res.status(404).json({ error: 'Call not found' });
+    }
+    
+    if (writeCalls(calls)) {
+      res.json({ success: true, message: 'Call deleted successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete call' });
+    }
+  } catch (err) {
+    console.error('Error deleting call:', err);
+    res.status(500).json({ error: 'Failed to delete call: ' + err.message });
+  }
+});
+
+// Bulk delete calls
+app.post('/api/calls/bulk-delete', (req, res) => {
+  try {
+    const { ids } = req.body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No valid IDs provided for deletion' });
+    }
+    
+    let calls = readCalls();
+    const initialLength = calls.length;
+    
+    calls = calls.filter(call => !ids.includes(call.call_id));
+    
+    if (calls.length === initialLength) {
+      return res.status(404).json({ error: 'No matching calls found' });
+    }
+    
+    if (writeCalls(calls)) {
+      res.json({ 
+        success: true, 
+        message: `Successfully deleted ${initialLength - calls.length} calls` 
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to delete calls' });
+    }
+  } catch (err) {
+    console.error('Error bulk deleting calls:', err);
+    res.status(500).json({ error: 'Failed to delete calls: ' + err.message });
+  }
+});
+
 // Get call statistics
 app.get('/api/stats', (req, res) => {
   try {
@@ -192,7 +248,7 @@ app.get('/', (req, res) => {
 // Initialize and start server
 initializeDataFile();
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Automated Call CRM Server running at http://localhost:${port}`);
   console.log(`📊 Visit http://localhost:${port} to view your CRM`);
   console.log(`📡 n8n can send data to: http://localhost:${port}/api/calls`);
