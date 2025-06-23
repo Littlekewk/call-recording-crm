@@ -245,73 +245,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Create sample data for testing
-function createSampleData() {
-  console.log('Creating sample data for testing...');
-  const calls = readCalls();
-  
-  // Create sample calls (always create them for testing)
-  const sampleCalls = [
-    {
-      call_id: generateId(),
-      phone_number: '818-555-0101',
-      recording_url: 'https://example.com/sample1.mp3',
-      call_date: new Date().toISOString(),
-      file_name: 'sample-call-1.mp3',
-      processed_at: new Date().toISOString(),
-      prospect_name: 'John Sample',
-      notes: 'This is a sample call record'
-    },
-    {
-      call_id: generateId(),
-      phone_number: '323-555-0202',
-      recording_url: 'https://example.com/sample2.mp3',
-      call_date: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-      file_name: 'sample-call-2.mp3',
-      processed_at: new Date().toISOString(),
-      prospect_name: 'Jane Test',
-      notes: 'Another sample call record'
-    }
-  ];
-  
-  // Add sample calls to the list
-  calls.push(...sampleCalls);
-  
-  if (writeCalls(calls)) {
-    console.log('✅ Successfully created sample data');
-  } else {
-    console.error('❌ Failed to create sample data');
-  }
-}
-
-// Add a debugging endpoint
-app.get('/api/debug', (req, res) => {
-  try {
-    const calls = readCalls();
-    const fileExists = fs.existsSync(dataFile);
-    let fileContents = '';
-    
-    if (fileExists) {
-      fileContents = fs.readFileSync(dataFile, 'utf8');
-    }
-    
-    res.json({
-      success: true,
-      dataFileExists: fileExists,
-      dataFilePath: dataFile,
-      dataFileSize: fileContents.length,
-      callsCount: calls.length,
-      environment: process.env.NODE_ENV || 'development',
-      serverTime: new Date().toISOString()
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Debug error: ' + err.message });
-  }
-});
-
 // Initialize and start server
 initializeDataFile();
-createSampleData(); // Always create sample data for testing
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Automated Call CRM Server running at http://localhost:${port}`);
