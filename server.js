@@ -487,3 +487,17 @@ process.on('SIGINT', async () => {
   }
   process.exit(0);
 });
+
+// Add this BEFORE your existing /api/calls route
+app.get('/ping', (req, res) => {
+  res.status(200).json({ 
+    status: 'alive', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Your existing /api/calls route stays the same...
+app.post('/api/calls', (req, res) => {
+  // Your existing code here
+});
