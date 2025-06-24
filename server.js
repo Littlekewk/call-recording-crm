@@ -1,13 +1,13 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// MongoDB connection string - replace with your actual connection string
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://littlekewk:<qfYeboHxEjPNPkpc>@mycrm.pdilpxj.mongodb.net/?retryWrites=true&w=majority&appName=MyCRM';
+// MongoDB connection string - update with your actual connection string
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://littlekewk:qfYeboHxEjPNPkpc@mycrm.pdilpxj.mongodb.net/?retryWrites=true&w=majority&appName=MyCRM';
 const DB_NAME = 'call-crm';
 const COLLECTION_NAME = 'calls';
 
@@ -21,9 +21,15 @@ let client = null;
 let db = null;
 let callsCollection = null;
 
+// Generate unique ID
+function generateId() {
+  return Date.now() + Math.random().toString(36).substr(2, 9);
+}
+
 // Connect to MongoDB
 async function connectToMongoDB() {
   try {
+    console.log('Attempting to connect to MongoDB...');
     client = new MongoClient(MONGO_URI);
     await client.connect();
     console.log('🔌 Connected to MongoDB Atlas');
@@ -39,27 +45,41 @@ async function connectToMongoDB() {
   }
 }
 
-// Generate unique ID
-function generateId() {
-  return Date.now() + Math.random().toString(36).substr(2, 9);
-}
-
 // API Routes
+
+// Test endpoint - always works even without MongoDB
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'CRM server is running!', 
+    time: new Date().toISOString(),
+    mongoUri: MONGO_URI ? (MONGO_URI.substring(0, 20) + '...') : 'Not set',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
 // Get all calls
 app.get('/api/calls', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const calls = await callsCollection.find({}).sort({ call_date: -1 }).toArray();
     res.json(calls);
   } catch (err) {
     console.error('Error fetching calls:', err);
-    res.status(500).json({ error: 'Failed to fetch calls' });
+    res.status(500).json({ error: 'Failed to fetch calls: ' + err.message });
   }
 });
 
 // Add new call (from n8n workflow)
 app.post('/api/calls', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     console.log('📞 Received new call data from n8n:', req.body);
     
     const newCall = {
@@ -91,6 +111,10 @@ app.post('/api/calls', async (req, res) => {
 // Update prospect name
 app.put('/api/calls/:id/prospect', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const { id } = req.params;
     const { prospect_name } = req.body;
     
@@ -108,13 +132,17 @@ app.put('/api/calls/:id/prospect', async (req, res) => {
     
   } catch (err) {
     console.error('Error updating prospect:', err);
-    res.status(500).json({ error: 'Failed to update prospect name' });
+    res.status(500).json({ error: 'Failed to update prospect name: ' + err.message });
   }
 });
 
 // Update notes
 app.put('/api/calls/:id/notes', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const { id } = req.params;
     const { notes } = req.body;
     
@@ -132,13 +160,17 @@ app.put('/api/calls/:id/notes', async (req, res) => {
     
   } catch (err) {
     console.error('Error updating notes:', err);
-    res.status(500).json({ error: 'Failed to update notes' });
+    res.status(500).json({ error: 'Failed to update notes: ' + err.message });
   }
 });
 
 // Delete a single call
 app.delete('/api/calls/:id', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const { id } = req.params;
     
     const result = await callsCollection.deleteOne({ call_id: id });
@@ -158,6 +190,10 @@ app.delete('/api/calls/:id', async (req, res) => {
 // Bulk delete calls
 app.post('/api/calls/bulk-delete', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const { ids } = req.body;
     
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -184,6 +220,10 @@ app.post('/api/calls/bulk-delete', async (req, res) => {
 // Get call statistics
 app.get('/api/stats', async (req, res) => {
   try {
+    if (!callsCollection) {
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -229,20 +269,8 @@ app.get('/api/stats', async (req, res) => {
     
   } catch (err) {
     console.error('Error fetching statistics:', err);
-    res.status(500).json({ error: 'Failed to fetch statistics' });
+    res.status(500).json({ error: 'Failed to fetch statistics: ' + err.message });
   }
-});
-
-// Test endpoint
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'CRM server is running with MongoDB!', 
-    time: new Date().toISOString(),
-    storage: 'MongoDB Atlas',
-    database: DB_NAME,
-    collection: COLLECTION_NAME
-  });
 });
 
 // Serve the main HTML file
@@ -255,8 +283,7 @@ async function startServer() {
   const connected = await connectToMongoDB();
   
   if (!connected) {
-    console.error('❌ Failed to connect to MongoDB. Server will not start.');
-    process.exit(1);
+    console.warn('⚠️ Failed to connect to MongoDB. Some features may not work.');
   }
   
   app.listen(port, '0.0.0.0', () => {
