@@ -93,6 +93,16 @@ let fallbackStorage = null;
 
 // API Routes
 
+// PING ENDPOINT - Keeps server alive (ADD THIS)
+app.get('/ping', (req, res) => {
+  res.status(200).json({ 
+    status: 'alive', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Test endpoint - always works even without MongoDB
 app.get('/api/test', (req, res) => {
   res.json({ 
@@ -473,6 +483,7 @@ async function startServer() {
     console.log(`🚀 Call CRM Server running at http://localhost:${port}`);
     console.log(`📊 Visit http://localhost:${port} to view your CRM`);
     console.log(`📡 n8n can send data to: http://localhost:${port}/api/calls`);
+    console.log(`🔄 Keep-alive endpoint: http://localhost:${port}/ping`);
     console.log(`💾 Data stored in: ${connected ? 'MongoDB Atlas' : 'Fallback JSON file'}`);
   });
 }
@@ -486,18 +497,4 @@ process.on('SIGINT', async () => {
     console.log('📊 MongoDB connection closed');
   }
   process.exit(0);
-});
-
-// Add this BEFORE your existing /api/calls route
-app.get('/ping', (req, res) => {
-  res.status(200).json({ 
-    status: 'alive', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-// Your existing /api/calls route stays the same...
-app.post('/api/calls', (req, res) => {
-  // Your existing code here
 });
