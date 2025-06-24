@@ -1,45 +1,40 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
+
+// MongoDB connection string - replace with your actual connection string
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://your-username:your-password@your-cluster.mongodb.net/crm?retryWrites=true&w=majority';
+const DB_NAME = 'call-crm';
+const COLLECTION_NAME = 'calls';
 
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
 app.use(cors());
 
-// Data file path
-const dataFile = path.join(__dirname, 'calls-data.json');
+// MongoDB client
+let client = null;
+let db = null;
+let callsCollection = null;
 
-// Initialize data file if it doesn't exist
-function initializeDataFile() {
-  if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(dataFile, JSON.stringify([], null, 2));
-    console.log('📄 Created calls-data.json file');
-  }
-}
-
-// Read calls from file
-function readCalls() {
+// Connect to MongoDB
+async function connectToMongoDB() {
   try {
-    const data = fs.readFileSync(dataFile, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading calls data:', error);
-    return [];
-  }
-}
-
-// Write calls to file
-function writeCalls(calls) {
-  try {
-    fs.writeFileSync(dataFile, JSON.stringify(calls, null, 2));
+    client = new MongoClient(MONGO_URI);
+    await client.connect();
+    console.log('🔌 Connected to MongoDB Atlas');
+    
+    db = client.db(DB_NAME);
+    callsCollection = db.collection(COLLECTION_NAME);
+    console.log('📊 Database and collection ready');
+    
     return true;
   } catch (error) {
-    console.error('Error writing calls data:', error);
+    console.error('❌ MongoDB connection error:', error);
     return false;
   }
 }
@@ -52,10 +47,9 @@ function generateId() {
 // API Routes
 
 // Get all calls
-app.get('/api/calls', (req, res) => {
+app.get('/api/calls', async (req, res) => {
   try {
-    const calls = readCalls();
-    calls.sort((a, b) => new Date(b.call_date) - new Date(a.call_date));
+    const calls = await callsCollection.find({}).sort({ call_date: -1 }).toArray();
     res.json(calls);
   } catch (err) {
     console.error('Error fetching calls:', err);
@@ -64,7 +58,7 @@ app.get('/api/calls', (req, res) => {
 });
 
 // Add new call (from n8n workflow)
-app.post('/api/calls', (req, res) => {
+app.post('/api/calls', async (req, res) => {
   try {
     console.log('📞 Received new call data from n8n:', req.body);
     
@@ -79,10 +73,9 @@ app.post('/api/calls', (req, res) => {
       notes: req.body.notes || ''
     };
     
-    const calls = readCalls();
-    calls.push(newCall);
+    const result = await callsCollection.insertOne(newCall);
     
-    if (writeCalls(calls)) {
+    if (result.acknowledged) {
       console.log('✅ Successfully added new call:', newCall.phone_number);
       res.json({ success: true, call: newCall });
     } else {
@@ -96,73 +89,66 @@ app.post('/api/calls', (req, res) => {
 });
 
 // Update prospect name
-app.put('/api/calls/:id/prospect', (req, res) => {
+app.put('/api/calls/:id/prospect', async (req, res) => {
   try {
     const { id } = req.params;
     const { prospect_name } = req.body;
     
-    const calls = readCalls();
-    const callIndex = calls.findIndex(call => call.call_id === id);
+    const result = await callsCollection.updateOne(
+      { call_id: id },
+      { $set: { prospect_name: prospect_name } }
+    );
     
-    if (callIndex === -1) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Call not found' });
     }
     
-    calls[callIndex].prospect_name = prospect_name;
+    const updatedCall = await callsCollection.findOne({ call_id: id });
+    res.json(updatedCall);
     
-    if (writeCalls(calls)) {
-      res.json(calls[callIndex]);
-    } else {
-      res.status(500).json({ error: 'Failed to update prospect name' });
-    }
   } catch (err) {
+    console.error('Error updating prospect:', err);
     res.status(500).json({ error: 'Failed to update prospect name' });
   }
 });
 
 // Update notes
-app.put('/api/calls/:id/notes', (req, res) => {
+app.put('/api/calls/:id/notes', async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
     
-    const calls = readCalls();
-    const callIndex = calls.findIndex(call => call.call_id === id);
+    const result = await callsCollection.updateOne(
+      { call_id: id },
+      { $set: { notes: notes } }
+    );
     
-    if (callIndex === -1) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Call not found' });
     }
     
-    calls[callIndex].notes = notes;
+    const updatedCall = await callsCollection.findOne({ call_id: id });
+    res.json(updatedCall);
     
-    if (writeCalls(calls)) {
-      res.json(calls[callIndex]);
-    } else {
-      res.status(500).json({ error: 'Failed to update notes' });
-    }
   } catch (err) {
+    console.error('Error updating notes:', err);
     res.status(500).json({ error: 'Failed to update notes' });
   }
 });
 
 // Delete a single call
-app.delete('/api/calls/:id', (req, res) => {
+app.delete('/api/calls/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    let calls = readCalls();
     
-    const initialLength = calls.length;
-    calls = calls.filter(call => call.call_id !== id);
+    const result = await callsCollection.deleteOne({ call_id: id });
     
-    if (calls.length === initialLength) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Call not found' });
     }
     
-    if (writeCalls(calls)) {
-      res.json({ success: true, message: 'Call deleted successfully' });
-    } else {
-      res.status(500).json({ error: 'Failed to delete call' });
-    }
+    res.json({ success: true, message: 'Call deleted successfully' });
+    
   } catch (err) {
     console.error('Error deleting call:', err);
     res.status(500).json({ error: 'Failed to delete call: ' + err.message });
@@ -170,7 +156,7 @@ app.delete('/api/calls/:id', (req, res) => {
 });
 
 // Bulk delete calls
-app.post('/api/calls/bulk-delete', (req, res) => {
+app.post('/api/calls/bulk-delete', async (req, res) => {
   try {
     const { ids } = req.body;
     
@@ -178,23 +164,17 @@ app.post('/api/calls/bulk-delete', (req, res) => {
       return res.status(400).json({ error: 'No valid IDs provided for deletion' });
     }
     
-    let calls = readCalls();
-    const initialLength = calls.length;
+    const result = await callsCollection.deleteMany({ call_id: { $in: ids } });
     
-    calls = calls.filter(call => !ids.includes(call.call_id));
-    
-    if (calls.length === initialLength) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'No matching calls found' });
     }
     
-    if (writeCalls(calls)) {
-      res.json({ 
-        success: true, 
-        message: `Successfully deleted ${initialLength - calls.length} calls` 
-      });
-    } else {
-      res.status(500).json({ error: 'Failed to delete calls' });
-    }
+    res.json({
+      success: true,
+      message: `Successfully deleted ${result.deletedCount} calls`
+    });
+    
   } catch (err) {
     console.error('Error bulk deleting calls:', err);
     res.status(500).json({ error: 'Failed to delete calls: ' + err.message });
@@ -202,41 +182,66 @@ app.post('/api/calls/bulk-delete', (req, res) => {
 });
 
 // Get call statistics
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const calls = readCalls();
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     
-    const todayCalls = calls.filter(call => {
-      const callDate = new Date(call.call_date);
-      return callDate >= today;
+    const total = await callsCollection.countDocuments({});
+    
+    // For today's calls, we need to handle potential date format issues
+    const todayCalls = await callsCollection.countDocuments({
+      $or: [
+        { call_date: { $regex: today.toISOString().split('T')[0] } },
+        { 
+          call_date: { 
+            $type: "date", 
+            $gte: today 
+          } 
+        }
+      ]
     });
     
-    const weekCalls = calls.filter(call => {
-      const callDate = new Date(call.call_date);
-      return callDate >= weekAgo;
+    // For week's calls, we need to handle potential date format issues
+    const weekCalls = await callsCollection.countDocuments({
+      $or: [
+        { 
+          call_date: { 
+            $type: "date", 
+            $gte: weekAgo 
+          } 
+        },
+        {
+          call_date: {
+            $type: "string",
+            $gte: weekAgo.toISOString()
+          }
+        }
+      ]
     });
     
     res.json({
-      total: calls.length,
-      today: todayCalls.length,
-      week: weekCalls.length
+      total: total,
+      today: todayCalls,
+      week: weekCalls
     });
+    
   } catch (err) {
+    console.error('Error fetching statistics:', err);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
-// Test endpoint - NO DATABASE REQUIRED
+// Test endpoint
 app.get('/api/test', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Local CRM server is running! (No database required)', 
+    message: 'CRM server is running with MongoDB!', 
     time: new Date().toISOString(),
-    storage: 'JSON file',
-    dataFile: dataFile
+    storage: 'MongoDB Atlas',
+    database: DB_NAME,
+    collection: COLLECTION_NAME
   });
 });
 
@@ -245,18 +250,30 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Initialize and start server
-initializeDataFile();
+// Start the server
+async function startServer() {
+  const connected = await connectToMongoDB();
+  
+  if (!connected) {
+    console.error('❌ Failed to connect to MongoDB. Server will not start.');
+    process.exit(1);
+  }
+  
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Call CRM Server running at http://localhost:${port}`);
+    console.log(`📊 Visit http://localhost:${port} to view your CRM`);
+    console.log(`📡 n8n can send data to: http://localhost:${port}/api/calls`);
+    console.log(`💾 Data stored in MongoDB Atlas`);
+  });
+}
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Automated Call CRM Server running at http://localhost:${port}`);
-  console.log(`📊 Visit http://localhost:${port} to view your CRM`);
-  console.log(`📡 n8n can send data to: http://localhost:${port}/api/calls`);
-  console.log(`💾 Call data stored in: ${dataFile}`);
-  console.log(`🔧 Storage: JSON file (no database required)`);
-});
+startServer();
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down server...');
+  if (client) {
+    await client.close();
+    console.log('📊 MongoDB connection closed');
+  }
   process.exit(0);
 });
