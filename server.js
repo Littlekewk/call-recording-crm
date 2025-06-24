@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // MongoDB connection string - replace with your actual connection string
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://your-username:your-password@your-cluster.mongodb.net/crm?retryWrites=true&w=majority';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://littlekewk:<qfYeboHxEjPNPkpc>@mycrm.pdilpxj.mongodb.net/?retryWrites=true&w=majority&appName=MyCRM';
 const DB_NAME = 'call-crm';
 const COLLECTION_NAME = 'calls';
 
